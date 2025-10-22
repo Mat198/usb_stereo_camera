@@ -26,7 +26,7 @@ private:
 
     void splitStereoImages(cv::Mat &frame, cv::Mat &imgL, cv::Mat &imgR);
 
-    ImageMsg createImageMsg(cv::Mat &img);
+    ImageMsg createImageMsg(cv::Mat &img, const rclcpp::Time &stamp);
 
 private:
 
@@ -38,6 +38,8 @@ private:
 
     // only one capture because we expect one big image with the left and right frames side by side
     cv::VideoCapture m_cap;
+
+    std::thread m_processingThread;
 
     int m_videoPort;
 };

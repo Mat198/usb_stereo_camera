@@ -18,6 +18,9 @@ UsbStereoCameraDriver::UsbStereoCameraDriver(const rclcpp::NodeOptions &options)
         rclcpp::shutdown();
         return;
     }
+
+    // Start thread with camera processing
+    m_processingThread = std::thread([this](){mainCameraProcessing();});
 }
 
 UsbStereoCameraDriver::~UsbStereoCameraDriver () {
@@ -25,6 +28,7 @@ UsbStereoCameraDriver::~UsbStereoCameraDriver () {
     if (!m_cap.isOpened()) {
         m_cap.release();
     }
+    m_processingThread.join();
 }
 
 bool UsbStereoCameraDriver::initializeCamera() {
@@ -60,6 +64,7 @@ void UsbStereoCameraDriver::mainCameraProcessing() {
     while (rclcpp::ok()) {
         cv::Mat frame;
         const bool frameReadResult = m_cap.read(frame);
+        const rclcpp::Time frameStamp = m_clock->now();
     
         if (!frameReadResult) {
             RCLCPP_ERROR_STREAM_THROTTLE(
@@ -76,8 +81,8 @@ void UsbStereoCameraDriver::mainCameraProcessing() {
         cv::Mat imgR, imgL;
         splitStereoImages(frame, imgL, imgR);
 
-        ImageMsg leftImgMsg = createImageMsg(imgL);
-        ImageMsg rightImgMsg = createImageMsg(imgR);
+        ImageMsg leftImgMsg = createImageMsg(imgL, frameStamp);
+        ImageMsg rightImgMsg = createImageMsg(imgR, frameStamp);
 
         m_leftImagePub->publish(leftImgMsg);
         m_rightImagePub->publish(rightImgMsg);
@@ -95,9 +100,9 @@ void UsbStereoCameraDriver::splitStereoImages(cv::Mat &frame, cv::Mat &imgL, cv:
     imgR = frame(roiR);
 }
 
-ImageMsg UsbStereoCameraDriver::createImageMsg(cv::Mat &img) {
+ImageMsg UsbStereoCameraDriver::createImageMsg(cv::Mat &img, const rclcpp::Time &stamp) {
     cv_bridge::CvImage cv_image;
-    cv_image.header.stamp = this->get_clock()->now(); // Set timestamp
+    cv_image.header.stamp = stamp; // Set timestamp
     cv_image.header.frame_id = "camera_frame"; // Set frame ID
     cv_image.encoding = sensor_msgs::image_encodings::BGR8; // Set encoding (e.g., BGR8 for color images)
     cv_image.image = img; // Assign your cv::Mat
