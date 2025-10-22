@@ -1,1 +1,1 @@
-# usb_stereo_camera
+# USB Stere Camera ROS 2 packages
